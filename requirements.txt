@@ -1,0 +1,9 @@
+# Top-level pins verified against this repo's code (see CLAUDE.md: APIs move
+# fast — re-verify import paths when bumping). For air-gapped installs,
+# generate a full lock on a connected host:
+#   pip freeze > requirements.lock
+#   pip download -r requirements.lock -d wheelhouse/
+deepeval==4.1.1
+mlflow==3.14.0
+openai==2.46.0
+pytest

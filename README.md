@@ -1,26 +1,63 @@
-# GenAI Evaluation Stack
+# genai-evaluation-stack
 
-A practical repository for comparing, testing, and monitoring GenAI applications across multiple evaluation tools and workflows.
+Self-hosted, air-gap-friendly evaluation stack for GenAI/LLM applications.
+Phase 1 core: **DeepEval** (metrics, LLM-as-judge) + **MLflow 3.x** (experiment
+tracking) + direct OpenAI-compatible endpoints. Design rationale, tool
+comparison, and roadmap: [genai-evaluation-stack-design.md](genai-evaluation-stack-design.md).
 
-## Overview
-
-This repository explores the GenAI evaluation ecosystem hands-on — setting up different evaluation frameworks side by side, running them against real LLM and RAG applications, and comparing how they handle common needs such as:
-
-- **Comparing** outputs, prompts, and models across runs and configurations
-- **Testing** application quality with metrics like faithfulness, relevance, and correctness
-- **Monitoring** production behavior with tracing, logging, and dashboards
-
-## Repository Structure
-
-Each evaluation tool or workflow lives in its own directory with runnable examples and notes on strengths, trade-offs, and setup.
-
-## Getting Started
-
-Clone the repository and explore the tool-specific directories as they are added:
+## Quickstart
 
 ```bash
-git clone <repo-url>
-cd genai-evaluation-stack
+python -m venv .venv
+source .venv/bin/activate          # Windows: .venv\Scripts\Activate.ps1
+pip install -e ".[dev]"
+
+cp .env.example .env               # then edit endpoints/model names
+set -a; source .env; set +a        # bash. PowerShell: see below
 ```
 
-Requirements and setup instructions are documented per tool inside each directory.
+PowerShell equivalent of exporting `.env`:
+
+```powershell
+Get-Content .env | Where-Object { $_ -match '^\s*[^#]' } | ForEach-Object {
+  $k, $v = $_ -split '=', 2; Set-Item "env:$k" $v.Trim()
+}
+```
+
+Run an evaluation (all flags fall back to env vars, then to an interactive
+prompt on a TTY; missing required values fail fast in CI/K8s):
+
+```bash
+python -m genai_eval.eval_runner \
+  --dataset datasets/golden_qa_de.jsonl \
+  --metrics answer_relevancy,correctness \
+  --out results/qa_baseline.json
+```
+
+Scores are logged to MLflow when `MLFLOW_TRACKING_URI` is set (always including
+`judge_model` and `judge_prompt_ver` — see the pinned-judge rule in
+[CLAUDE.md](CLAUDE.md)).
+
+Offline tests (no endpoints needed):
+
+```bash
+pytest tests/
+```
+
+## Endpoints
+
+The stack assumes OpenAI-compatible endpoints (vLLM, Ollama, LiteLLM, cloud):
+
+| Env var | Role |
+|---|---|
+| `MODEL_ENDPOINT` / `MODEL_NAME` | Application model under evaluation |
+| `JUDGE_ENDPOINT` / `JUDGE_MODEL` | LLM-as-judge for DeepEval metrics |
+| `API_KEY` | Shared key; any placeholder if the endpoint has no auth |
+
+The defaults in `.env.example` are localhost placeholders.
+
+## Metric registry
+
+One metric name → one owning framework. See
+[docs/metric-registry.md](docs/metric-registry.md) before adding or renaming
+any metric.

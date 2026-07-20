@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "genai-eval"
+version = "0.1.0"
+description = "Self-hosted, air-gap-friendly GenAI/LLM evaluation stack (DeepEval + MLflow)"
+requires-python = ">=3.10"
+dependencies = [
+    "deepeval",
+    "mlflow>=3",
+    "openai",
+]
+
+[project.optional-dependencies]
+dev = ["pytest"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
