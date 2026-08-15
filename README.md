@@ -24,6 +24,12 @@ Get-Content .env | Where-Object { $_ -match '^\s*[^#]' } | ForEach-Object {
 }
 ```
 
+> **Running from Jupyter/JupyterLab**: a `!bash` or `%%bash` cell's working
+> directory doesn't always match the notebook's location, so a relative
+> `source .env` can fail with "No such file or directory". Use the absolute
+> path instead, e.g. `source /full/path/to/genai-evaluation-stack/.env`
+> (or `source "$(pwd)/.env"` if the notebook's cwd is confirmed to be the repo root).
+
 Run an evaluation (all flags fall back to env vars, then to an interactive
 prompt on a TTY; missing required values fail fast in CI/K8s):
 
