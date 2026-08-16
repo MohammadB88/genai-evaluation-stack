@@ -1,5 +1,7 @@
 # genai-evaluation-stack
 
+![GenAI Evaluation Stack](docs/images/genai-evaluation-testing.png)
+
 Self-hosted, air-gap-friendly evaluation stack for GenAI/LLM applications.
 Phase 1 core: **DeepEval** (metrics, LLM-as-judge) + **MLflow 3.x** (experiment
 tracking) + direct OpenAI-compatible endpoints. Design rationale, tool
