@@ -30,6 +30,28 @@ Get-Content .env | Where-Object { $_ -match '^\s*[^#]' } | ForEach-Object {
 > path instead, e.g. `source /full/path/to/genai-evaluation-stack/.env`
 > (or `source "$(pwd)/.env"` if the notebook's cwd is confirmed to be the repo root).
 
+Sanity-check both endpoints are reachable before running an evaluation:
+
+```bash
+# Model endpoint
+curl -sS -w "\nHTTP %{http_code}\n" \
+  -X POST "$MODEL_ENDPOINT/chat/completions" \
+  -H "Authorization: Bearer $API_KEY" \
+  -H "Content-Type: application/json" \
+  -d "{\"model\": \"$MODEL_NAME\", \"messages\": [{\"role\": \"user\", \"content\": \"Say OK\"}], \"max_tokens\": 5}"
+
+# Judge endpoint
+curl -sS -w "\nHTTP %{http_code}\n" \
+  -X POST "$JUDGE_ENDPOINT/chat/completions" \
+  -H "Authorization: Bearer $API_KEY" \
+  -H "Content-Type: application/json" \
+  -d "{\"model\": \"$JUDGE_MODEL\", \"messages\": [{\"role\": \"user\", \"content\": \"Say OK\"}], \"max_tokens\": 5}"
+```
+
+Both should return `HTTP 200` with a completion containing "OK". A non-200 or
+connection error here means the eval runner will fail too — fix endpoint
+reachability before debugging metrics.
+
 Run an evaluation (all flags fall back to env vars, then to an interactive
 prompt on a TTY; missing required values fail fast in CI/K8s):
 
