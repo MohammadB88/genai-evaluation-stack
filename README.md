@@ -52,6 +52,17 @@ Both should return `HTTP 200` with a completion containing "OK". A non-200 or
 connection error here means the eval runner will fail too — fix endpoint
 reachability before debugging metrics.
 
+If `MLFLOW_TRACKING_URI` is set, check the tracking server is reachable too
+(runs are logged only when this var is set, so skip this if you're not using
+MLflow yet):
+
+```bash
+# MLflow tracking server
+curl -sS -w "\nHTTP %{http_code}\n" "$MLFLOW_TRACKING_URI/health"
+```
+
+Should return `HTTP 200` with body `OK`.
+
 Run an evaluation (all flags fall back to env vars, then to an interactive
 prompt on a TTY; missing required values fail fast in CI/K8s):
 
