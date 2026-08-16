@@ -1,0 +1,10 @@
+# Fallback to public PyPI for packages not on this environment's configured
+# default index (e.g. a corporate/internal mirror) — needed if the default
+# index doesn't carry every package below.
+--extra-index-url https://pypi.org/simple
+
+# Model-quality evaluation notebook (model_eval_deepeval.ipynb):
+# deepeval provides the LLM-as-judge metrics; openai is the client used to
+# query the model under test (any OpenAI-compatible endpoint).
+deepeval>=1.0
+openai>=1.0
