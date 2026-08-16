@@ -8,3 +8,13 @@
 # query the model under test (any OpenAI-compatible endpoint).
 deepeval>=1.0
 openai>=1.0
+
+# MLflow logging notebook (model_eval_deepeval_mlflow.ipynb):
+mlflow>=3.0
+
+# Phase 4 prototypes — exploratory only, not part of the Phase 1 core stack
+# (see CLAUDE.md's trigger-based additions). Pinned loosely; verify against
+# installed-version docs before relying on any API shown in these notebooks.
+langfuse>=3.0   # phase4_langfuse_prototype.ipynb
+evidently>=0.7  # phase4_evidently_prototype.ipynb
+pandas>=2.0
