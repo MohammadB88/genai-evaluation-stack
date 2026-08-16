@@ -37,22 +37,31 @@ The full design rationale, tool comparison, and roadmap live in `genai-evaluatio
 
 ## Repository Structure
 
+Current state (Phase 1 vertical slice + Phase 4 exploratory notebooks only —
+CI gates, scripts/, Dockerfile, pipelines/, and deploy/k8s/ from the roadmap
+below do not exist yet):
+
 ```
-├── genai-evaluation-stack-design.md   # full design doc — source of truth for decisions
-├── .env.example                # all env vars (endpoints, telemetry opt-outs, HF offline)
-├── docs/                       # concepts, tool comparison, air-gap setup, judge endpoints,
-│                               # regression policy, metric-registry.md
-├── notebooks/                  # numbered PoC notebooks (DeepEval judge, RAG eval,
-│                               # summarization, MLflow tracking, [Phase 4] Evidently drift)
-├── datasets/                   # golden_qa_de.jsonl, golden_rag_de.jsonl, golden_summarization_de.jsonl
-├── src/genai_eval/             # config, endpoints, datasets, metrics, eval_runner,
-│                               # compare_results, mlflow_logging
-├── scripts/                    # run_eval.sh, run_regression_gate.sh (bash wrappers)
-├── Dockerfile                  # containerized runner image for K8s Jobs
-├── pipelines/                  # github-actions/, tekton/, k8s/ (eval-job.yaml)
-├── deploy/k8s/                 # per-component manifests (mlflow core; langfuse/evidently/
-│                               # litellm/otel-collector/prom-grafana conditional)
-└── tests/                      # test_eval_smoke.py — deepeval smoke suite for CI
+├── genai-evaluation-stack-design.md     # full design doc — source of truth for decisions
+├── README.md                    # quickstart, endpoint sanity checks, env vars
+├── .env.example                 # all env vars (endpoints, telemetry opt-outs, HF offline)
+├── docs/
+│   └── metric-registry.md       # one metric name → one owning framework
+├── notebooks/
+│   ├── model_eval_deepeval.ipynb        # DeepEval LLM-as-judge PoC against golden_qa_de
+│   ├── model_eval_deepeval_mlflow.ipynb # same, + logging runs/scores to MLflow
+│   ├── phase4_langfuse_prototype.ipynb  # exploratory only — Phase 4 trigger not fired
+│   ├── phase4_evidently_prototype.ipynb # exploratory only — Phase 4 trigger not fired
+│   ├── requirements.txt         # notebook-only deps, split from src/ requirements
+│   └── sample-prompts/content_generation.jsonl
+├── datasets/
+│   └── golden_qa_de.jsonl       # only golden dataset so far (rag/summarization not yet added)
+├── src/genai_eval/               # config, endpoints, datasets, metrics, eval_runner
+│   └── (no compare_results.py or mlflow_logging.py module yet — MLflow logging
+│        currently lives inline in the notebooks, not in src/)
+├── tests/
+│   └── test_offline.py          # offline unit tests, no endpoints needed
+└── pyproject.toml
 ```
 
 ### Golden dataset schema (JSONL, one object per line)
@@ -62,43 +71,50 @@ Required: `id`, `language`, `category`, `prompt`, `max_tokens`, `temperature`. O
 ## Code Conventions
 
 - **Env-var-first config with interactive fallback**: every runnable reads config from env vars (`MODEL_ENDPOINT`, `JUDGE_ENDPOINT`, `EMBED_ENDPOINT`, `API_KEY`, `DATASET`, `METRICS`, `OUT`), prompts interactively only when a required var is missing, and **fails fast in non-TTY contexts** (K8s Jobs have no stdin). Same pattern as the user's `run_aiperf_sustained.sh`.
-- **One runner, three entry points**: local Python (`python -m genai_eval.eval_runner`), bash wrapper (`scripts/`), containerized K8s Job. The exit code carries the gate result (failed Job = failed gate). Don't create per-mode logic forks — the env-var-first design is what keeps all three identical.
-- **OpenShift-clean containers**: writable `WORKDIR` on `emptyDir`, files owned by group `0` with `chmod g=u`, no fixed UID. DeepEval containers additionally need `DEEPEVAL_NO_INSPECT_PROMPT=1`, `DEEPEVAL_DISABLE_DOTENV=1`, `DEEPEVAL_RESULTS_FOLDER` set, and (optionally) `DEEPEVAL_FILE_SYSTEM=READ_ONLY`.
-- **Verify APIs against pinned versions**: DeepEval, Ragas, Evidently, and `mlflow.genai` all change APIs fast. Snippets in the design doc are illustrative — check the installed version's docs before relying on import paths or signatures.
+- **One runner, three entry points (target design)**: local Python (`python -m genai_eval.eval_runner`), bash wrapper (`scripts/`), containerized K8s Job. Only the local Python entry point exists today; `scripts/` and the container image are not yet built. Don't create per-mode logic forks once they exist — the env-var-first design is what's meant to keep all three identical.
+- **OpenShift-clean containers (target design, not yet built)**: writable `WORKDIR` on `emptyDir`, files owned by group `0` with `chmod g=u`, no fixed UID. DeepEval containers additionally need `DEEPEVAL_NO_INSPECT_PROMPT=1`, `DEEPEVAL_DISABLE_DOTENV=1`, `DEEPEVAL_RESULTS_FOLDER` set, and (optionally) `DEEPEVAL_FILE_SYSTEM=READ_ONLY`.
+- **Verify APIs against pinned versions**: DeepEval, Ragas, Evidently, and `mlflow.genai` all change APIs fast. Snippets in the design doc and Phase 4 notebooks are illustrative — check the installed version's docs before relying on import paths or signatures.
+- **Jupyter `.env` loading**: a notebook's `!bash`/`%%bash` cell working directory doesn't always match the notebook's location, so a relative `source .env` can fail. Use an absolute path or `source "$(pwd)/.env"` once cwd is confirmed to be the repo root (see README).
 
 ## Regression Gate Policy (three layers, evaluated in order; any failure blocks)
 
 1. **Hard safety constraints** — zero tolerance: any PII leakage, toxicity, or policy failure on the golden set fails the build (DeepEval `assert_test` with threshold 1.0).
 2. **Per-metric floors** — absolute minimums independent of baseline (calibrated per judge model).
-3. **Regression checks** — candidate vs. baseline: overall delta within tolerance AND no critical-slice regression (e.g., `language=de`, per `category`). Implemented by `compare_results.py --fail-on-regression`.
+3. **Regression checks** — candidate vs. baseline: overall delta within tolerance AND no critical-slice regression (e.g., `language=de`, per `category`). Designed to be implemented by `compare_results.py --fail-on-regression` (Phase 2, not yet built).
 
-Suites are tiered by cost: smoke on every PR, broader nightly, full suite before major prompt/model changes.
+Suites are tiered by cost: smoke on every PR, broader nightly, full suite before major prompt/model changes. This policy is the Phase 2 target; no CI wiring exists yet.
 
 ## Common Commands
 
 ```bash
-# Run DeepEval smoke suite (CI layers 1+2; non-zero exit on threshold fail)
-deepeval test run tests/test_eval_smoke.py
+# Setup
+python -m venv .venv
+source .venv/bin/activate          # Windows: .venv\Scripts\Activate.ps1
+pip install -e ".[dev]"
+cp .env.example .env               # then edit endpoints/model names
 
-# Run an evaluation
+# Run an evaluation (flags fall back to env vars, then interactive prompt on a TTY;
+# missing required values fail fast in CI/K8s)
 python -m genai_eval.eval_runner \
-  --dataset datasets/golden_rag_de.jsonl \
-  --model-endpoint http://vllm-app:8000/v1 \
-  --judge-endpoint http://vllm-judge:8000/v1 \
-  --metrics faithfulness,answer_relevancy,context_recall \
-  --out results/rag_v3.json
+  --dataset datasets/golden_qa_de.jsonl \
+  --metrics answer_relevancy,correctness \
+  --out results/qa_baseline.json
 
-# Compare against baseline (CI layer 3)
-python -m genai_eval.compare_results --baseline results/main.json --candidate results/pr.json --fail-on-regression
+# Offline tests (no endpoints needed)
+pytest tests/
 
 # Air-gapped install
 pip install --no-index --find-links=/opt/wheelhouse -r requirements.lock
 ```
 
+Note: `deepeval test run` (CI smoke suite), `compare_results.py` (regression gate
+layer 3), `scripts/` wrappers, and the containerized/K8s runner are Phase 2+
+roadmap items — not implemented yet. See below.
+
 ## Phased Roadmap (trigger-based, not tool-accretion-based)
 
-- **Phase 1 — Core**: MLflow + DeepEval + direct endpoints; notebooks, golden datasets, CLI runner; everything logged to MLflow.
-- **Phase 2 — CI gates**: three-layer policy in GitHub Actions/Tekton/K8s Jobs.
-- **Phase 3 — Specialist metrics (conditional)**: Ragas candidates admitted only via the acceptance rule, under an identical pinned judge configuration.
-- **Phase 4 — Production (conditional)**: Langfuse + Evidently + OTel Collector trace routing (CI/dev → MLflow, prod → Langfuse); apply the system-of-record split from day one.
-- **Cross-cutting**: Prometheus/Grafana for serving infra (vLLM `/metrics`) — operational monitoring, independent of eval phases.
+- **Phase 1 — Core (in progress)**: MLflow + DeepEval + direct endpoints. Done: `src/genai_eval` runner (config, endpoints, datasets, metrics, eval_runner), `golden_qa_de.jsonl`, `model_eval_deepeval.ipynb` and `model_eval_deepeval_mlflow.ipynb` PoC notebooks, offline tests. Not yet done: `golden_rag_de.jsonl` / `golden_summarization_de.jsonl`, a `compare_results.py`/`mlflow_logging.py` module in `src/` (MLflow logging currently lives inline in the notebook).
+- **Phase 2 — CI gates (not started)**: three-layer policy in GitHub Actions/Tekton/K8s Jobs; `scripts/`, `Dockerfile`, `pipelines/`, `deploy/k8s/`, `tests/test_eval_smoke.py` all still to be created.
+- **Phase 3 — Specialist metrics (conditional, not started)**: Ragas candidates admitted only via the acceptance rule, under an identical pinned judge configuration.
+- **Phase 4 — Production (conditional; early exploration underway)**: `phase4_langfuse_prototype.ipynb` and `phase4_evidently_prototype.ipynb` exist as exploratory PoCs only — their entry-criteria (real production tracing needs / enough production history for drift windows) have **not** fired yet, so nothing from these notebooks is part of the core stack. Don't treat their presence as adoption of Langfuse/Evidently; apply the system-of-record split from day one once they graduate to real use.
+- **Cross-cutting**: Prometheus/Grafana for serving infra (vLLM `/metrics`) — operational monitoring, independent of eval phases. Not started.
