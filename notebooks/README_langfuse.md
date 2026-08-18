@@ -93,6 +93,31 @@ subcharts) can't be mirrored into the cluster's registry, deploy from plain YAML
 This is more manual to maintain (chart upgrades won't carry this forward), so prefer Option A
 unless there's a specific reason not to use Helm.
 
+A reference script implementing this option end-to-end is provided:
+[`install_langfuse_openshift.sh`](install_langfuse_openshift.sh). It creates the namespace,
+generates/applies the required `Secret`s, deploys Postgres/ClickHouse/Redis/MinIO as
+`StatefulSet`s and Langfuse web/worker as `Deployment`s, and creates the `Route`. It follows this
+repo's env-var-first / fail-fast convention — required secrets (`NEXTAUTH_SECRET`, `SALT`,
+`ENCRYPTION_KEY`, DB passwords) are read from env vars, prompted for interactively on a TTY if
+missing, or the script aborts in non-interactive contexts:
+
+```bash
+export NAMESPACE=genai-eval-langfuse                              # optional
+export IMAGE_REGISTRY=my-internal-registry.example.com/langfuse   # set for air-gapped clusters
+export NEXTAUTH_SECRET=$(openssl rand -hex 32)
+export LANGFUSE_SALT=$(openssl rand -hex 32)
+export ENCRYPTION_KEY=$(openssl rand -hex 32)
+export POSTGRES_PASSWORD=$(openssl rand -hex 24)
+export CLICKHOUSE_PASSWORD=$(openssl rand -hex 24)
+export MINIO_ROOT_PASSWORD=$(openssl rand -hex 24)
+
+./install_langfuse_openshift.sh
+```
+
+Review the manifest section of the script before running against a shared cluster — image tags,
+PVC sizes, and ClickHouse resource requests are set to reasonable defaults but are not tuned for
+any specific cluster's quota.
+
 ## OpenShift-specific gotchas
 
 - **Non-root, arbitrary UID.** OpenShift's default SCC (`restricted-v2`) runs containers with a
