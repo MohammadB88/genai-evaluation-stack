@@ -5,8 +5,11 @@
 
 # Model-quality evaluation notebook (model_eval_deepeval.ipynb):
 # deepeval provides the LLM-as-judge metrics; openai is the client used to
-# query the model under test (any OpenAI-compatible endpoint).
-deepeval>=1.0
+# query the model under test (any OpenAI-compatible endpoint). Pinned to the
+# same version as requirements.txt (src/) — DeepEval's evaluate()/metric APIs
+# have changed across releases, and notebook/src drift here previously caused
+# a TypeError on evaluate()'s error-handling kwarg.
+deepeval==4.1.1
 openai>=1.0
 
 # MLflow logging notebook (model_eval_deepeval_mlflow.ipynb):
