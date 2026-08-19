@@ -38,6 +38,27 @@ def test_rag_items_have_contexts():
             assert item.contexts, f"{item.id} wants faithfulness but has no contexts"
 
 
+def test_golden_rag_de_loads_and_is_valid():
+    items = load_golden_dataset(REPO_ROOT / "datasets" / "golden_rag_de.jsonl")
+    assert len(items) >= 5
+    assert all(i.category == "rag" for i in items)
+    assert len({i.id for i in items}) == len(items)
+    for item in items:
+        assert item.contexts, f"{item.id} is a RAG item but has no contexts"
+        for name in item.metric_set or ():
+            assert name in REGISTRY, f"{item.id} references unregistered metric {name}"
+
+
+def test_golden_summarization_de_loads_and_is_valid():
+    items = load_golden_dataset(REPO_ROOT / "datasets" / "golden_summarization_de.jsonl")
+    assert len(items) >= 5
+    assert all(i.category == "summarization" for i in items)
+    assert len({i.id for i in items}) == len(items)
+    for item in items:
+        for name in item.metric_set or ():
+            assert name in REGISTRY, f"{item.id} references unregistered metric {name}"
+
+
 def test_missing_required_field_raises(tmp_path):
     bad = tmp_path / "bad.jsonl"
     bad.write_text(json.dumps({"id": "x", "language": "de", "prompt": "p"}) + "\n",
@@ -88,6 +109,18 @@ def test_registry_matches_docs_metric_registry():
     doc = (REPO_ROOT / "docs" / "metric-registry.md").read_text(encoding="utf-8")
     for name in REGISTRY:
         assert f"`{name}`" in doc, f"{name} missing from docs/metric-registry.md"
+
+
+def test_backlog_metrics_are_registered():
+    for name in ("contextual_precision", "contextual_recall", "summarization", "toxicity"):
+        assert name in REGISTRY, f"{name} is missing from the metric registry"
+
+
+def test_referenceless_metrics_require_no_golden_fields():
+    for name in ("summarization", "toxicity"):
+        assert REGISTRY[name].requires == (), (
+            f"{name} should be referenceless (no expected_output/contexts requirement)"
+        )
 
 
 def test_unknown_metric_rejected():

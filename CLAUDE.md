@@ -55,10 +55,11 @@ below do not exist yet):
 │   ├── requirements.txt         # notebook-only deps, split from src/ requirements
 │   └── sample-prompts/content_generation.jsonl
 ├── datasets/
-│   └── golden_qa_de.jsonl       # only golden dataset so far (rag/summarization not yet added)
-├── src/genai_eval/               # config, endpoints, datasets, metrics, eval_runner
-│   └── (no compare_results.py or mlflow_logging.py module yet — MLflow logging
-│        currently lives inline in the notebooks, not in src/)
+│   ├── golden_qa_de.jsonl               # QA (+ a few inline rag-category items)
+│   ├── golden_rag_de.jsonl              # dedicated RAG set: faithfulness, contextual_precision/recall
+│   └── golden_summarization_de.jsonl    # summarization + toxicity (referenceless)
+├── src/genai_eval/               # config, endpoints, datasets, metrics, eval_runner, mlflow_logging
+│   └── (no compare_results.py yet — regression-gate layer 3, Phase 2)
 ├── tests/
 │   └── test_offline.py          # offline unit tests, no endpoints needed
 └── pyproject.toml
@@ -109,12 +110,13 @@ pip install --no-index --find-links=/opt/wheelhouse -r requirements.lock
 
 Note: `deepeval test run` (CI smoke suite), `compare_results.py` (regression gate
 layer 3), `scripts/` wrappers, and the containerized/K8s runner are Phase 2+
-roadmap items — not implemented yet. See below.
+roadmap items — not implemented yet. MLflow logging (`mlflow_logging.py`) is
+already implemented and wired into `eval_runner.py`. See below.
 
 ## Phased Roadmap (trigger-based, not tool-accretion-based)
 
-- **Phase 1 — Core (in progress)**: MLflow + DeepEval + direct endpoints. Done: `src/genai_eval` runner (config, endpoints, datasets, metrics, eval_runner), `golden_qa_de.jsonl`, `model_eval_deepeval.ipynb` and `model_eval_deepeval_mlflow.ipynb` PoC notebooks, offline tests. Not yet done: `golden_rag_de.jsonl` / `golden_summarization_de.jsonl`, a `compare_results.py`/`mlflow_logging.py` module in `src/` (MLflow logging currently lives inline in the notebook).
-- **Phase 2 — CI gates (not started)**: three-layer policy in GitHub Actions/Tekton/K8s Jobs; `scripts/`, `Dockerfile`, `pipelines/`, `deploy/k8s/`, `tests/test_eval_smoke.py` all still to be created.
+- **Phase 1 — Core (near done)**: MLflow + DeepEval + direct endpoints. Done: `src/genai_eval` runner (config, endpoints, datasets, metrics, eval_runner, mlflow_logging — wired into the CLI), `golden_qa_de.jsonl` / `golden_rag_de.jsonl` / `golden_summarization_de.jsonl`, full metric registry (`answer_relevancy`, `correctness`, `faithfulness`, `contextual_precision`, `contextual_recall`, `summarization`, `toxicity` — all DeepEval, no backlog remaining), `model_eval_deepeval.ipynb` and `model_eval_deepeval_mlflow.ipynb` PoC notebooks, offline tests. Not yet done: nothing outstanding in scope; new metrics/datasets can still be added ad hoc as needs arise.
+- **Phase 2 — CI gates (not started)**: three-layer policy in GitHub Actions/Tekton/K8s Jobs; `scripts/`, `Dockerfile`, `pipelines/`, `deploy/k8s/`, `tests/test_eval_smoke.py`, `compare_results.py` all still to be created.
 - **Phase 3 — Specialist metrics (conditional, not started)**: Ragas candidates admitted only via the acceptance rule, under an identical pinned judge configuration.
 - **Phase 4 — Production (conditional; early exploration underway)**: `phase4_langfuse_prototype.ipynb` and `phase4_evidently_prototype.ipynb` exist as exploratory PoCs only — their entry-criteria (real production tracing needs / enough production history for drift windows) have **not** fired yet, so nothing from these notebooks is part of the core stack. Don't treat their presence as adoption of Langfuse/Evidently; apply the system-of-record split from day one once they graduate to real use.
 - **Cross-cutting**: Prometheus/Grafana for serving infra (vLLM `/metrics`) — operational monitoring, independent of eval phases. Not started.

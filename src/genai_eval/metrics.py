@@ -53,12 +53,42 @@ def _faithfulness(judge):
     return FaithfulnessMetric(model=judge, threshold=0.7)
 
 
+def _contextual_precision(judge):
+    from deepeval.metrics import ContextualPrecisionMetric
+
+    return ContextualPrecisionMetric(model=judge, threshold=0.7)
+
+
+def _contextual_recall(judge):
+    from deepeval.metrics import ContextualRecallMetric
+
+    return ContextualRecallMetric(model=judge, threshold=0.7)
+
+
+def _summarization(judge):
+    from deepeval.metrics import SummarizationMetric
+
+    return SummarizationMetric(model=judge, threshold=0.5)
+
+
+def _toxicity(judge):
+    from deepeval.metrics import ToxicityMetric
+
+    return ToxicityMetric(model=judge, threshold=0.5)
+
+
 REGISTRY: dict[str, MetricSpec] = {
     spec.name: spec
     for spec in (
         MetricSpec("answer_relevancy", "deepeval", 0.7, (), _answer_relevancy),
         MetricSpec("correctness", "deepeval", 0.5, ("expected_output",), _correctness),
         MetricSpec("faithfulness", "deepeval", 0.7, ("contexts",), _faithfulness),
+        MetricSpec("contextual_precision", "deepeval", 0.7,
+                   ("expected_output", "contexts"), _contextual_precision),
+        MetricSpec("contextual_recall", "deepeval", 0.7,
+                   ("expected_output", "contexts"), _contextual_recall),
+        MetricSpec("summarization", "deepeval", 0.5, (), _summarization),
+        MetricSpec("toxicity", "deepeval", 0.5, (), _toxicity),
     )
 }
 
