@@ -19,6 +19,9 @@ class MetricSpec:
     # Golden-item fields the metric needs beyond prompt + actual_output.
     requires: tuple[str, ...]
     factory: Callable[[Any], Any]  # judge -> metric instance
+    # True: success is score >= threshold (most DeepEval metrics).
+    # False: success is score <= threshold (e.g. toxicity — lower is better).
+    higher_is_better: bool = True
 
 
 def _answer_relevancy(judge):
@@ -88,7 +91,7 @@ REGISTRY: dict[str, MetricSpec] = {
         MetricSpec("contextual_recall", "deepeval", 0.7,
                    ("expected_output", "contexts"), _contextual_recall),
         MetricSpec("summarization", "deepeval", 0.5, (), _summarization),
-        MetricSpec("toxicity", "deepeval", 0.5, (), _toxicity),
+        MetricSpec("toxicity", "deepeval", 0.5, (), _toxicity, higher_is_better=False),
     )
 }
 
